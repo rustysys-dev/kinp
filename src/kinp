@@ -1,0 +1,5 @@
+#!/bin/bash
+
+opts="${@}"
+export UPDATECONFIG=$USER
+sudo -E bash -c "source /usr/lib/kinp/libkinp; root_cmd ${opts}"

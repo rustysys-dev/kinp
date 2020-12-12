@@ -1,0 +1,24 @@
+#!/bin/bash
+
+if ! [ $USER == "root" ]; then
+    echo "this command must be executed as root"
+fi
+
+echo "DISCLAIMER: running kinp will install kind, kubectl, awscli if"
+echo "            unavailable to root."
+
+cp src/kinp /usr/bin/kinp
+chmod +x /usr/bin/kinp
+
+if ! [ -x /usr/bin/kinp ]; then
+    echo "failed to install kinp"
+    exit
+fi
+
+mkdir -p /usr/lib/kinp
+cp lib/libkinp /usr/lib/kinp/libkinp
+
+if ! [ -f /usr/lib/kinp/libkinp ]; then
+    echo "failed to install libkinp"
+    exit
+fi

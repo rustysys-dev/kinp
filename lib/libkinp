@@ -1,6 +1,6 @@
 #!/bin/bash
 
-function ensure_aws_cli() {
+function ensure_aws_cli_command() {
     if [ -x "$(command -v aws)" ]; then
         curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
         unzip awscliv2.zip && ./aws/install
@@ -15,13 +15,13 @@ function authorize_podman_to_ecr() {
     aws ecr get-login-password | podman login \
                                      --username AWS \
                                      --password-stdin \
-                                     636082426924.dkr.ecr.ap-northeast-1.amazonaws.com
+                                     $1.dkr.ecr.ap-northeast-1.amazonaws.com
 }
 
 function ensure_podman_access_to_private_ecr() {
     if ! [ -f /run/containers/0/auth.json ]; then
-        ensure_aws_cli
-        authorize_podman_to_ecr
+        ensure_aws_cli_command
+        authorize_podman_to_ecr $1
         cp /run/containers/0/auth.json ./
     fi
 }
@@ -61,7 +61,10 @@ function copy_to_user_kube_config() {
 function root_cmd() {
     mkdir -p ./.kind_data_dir && cd ./.kind_data_dir
     fail_if_podman_does_not_exist
-    ensure_podman_access_to_private_ecr
+    echo $AWS_ACCOUNT_ID
+    if [ $AWS_ACCOUNT_ID ]; then
+        ensure_podman_access_to_private_ecr
+    fi
     ensure_kubectl_command
     ensure_kind_command
 
