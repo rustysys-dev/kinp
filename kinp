@@ -1,0 +1,4 @@
+#!/bin/bash
+
+opts="${@}"
+sudo bash -c "source /usr/bin/libkinp; UPDATECONFIG=$USER root_cmd ${opts}"
