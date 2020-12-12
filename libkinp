@@ -1,0 +1,72 @@
+#!/bin/bash
+
+function ensure_aws_cli() {
+    if [ -x "$(command -v aws)" ]; then
+        curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+        unzip awscliv2.zip && ./aws/install
+        rm -rf aws awscliv2.zip
+    fi
+    if ! [ $(aws configure get fake.aws_access_key_id) ]; then
+        aws configure
+    fi
+}
+
+function authorize_podman_to_ecr() {
+    aws ecr get-login-password | podman login \
+                                     --username AWS \
+                                     --password-stdin \
+                                     636082426924.dkr.ecr.ap-northeast-1.amazonaws.com
+}
+
+function ensure_podman_access_to_private_ecr() {
+    if ! [ -f /run/containers/0/auth.json ]; then
+        ensure_aws_cli
+        authorize_podman_to_ecr
+        cp /run/containers/0/auth.json ./
+    fi
+}
+
+function ensure_kubectl_command() {
+    if ! [ -x "$(command -v kubectl)" ]; then
+        kubectl_latest=$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)
+        kubectl_url=https://storage.googleapis.com/kubernetes-release/release/$kubectl_latest/bin/linux/amd64/kubectl
+        curl -sLo /usr/local/bin/kubectl $kubectl_url && chmod +x /usr/local/bin/kubectl
+    fi
+}
+
+function ensure_kind_command() {
+    if ! [ -x "$(command -v kind)" ]; then
+        curl -sLo /usr/local/bin/kind https://kind.sigs.k8s.io/dl/v0.9.0/kind-linux-amd64
+        chmod +x /usr/local/bin/kind
+    fi
+}
+
+function fail_if_podman_does_not_exist() {
+    if !  [ -x "$(command -v podman)" ]; then
+        echo "This command assumes podman is installed"
+        return 1
+    fi
+}
+
+function copy_from_user_kube_config() {
+    export KUBECONFIG=~/.kube/config:/home/$1/.kube/config
+    kubectl config view --flatten > ~/.kube/config
+}
+
+function copy_to_user_kube_config() {
+    export KUBECONFIG=/home/$1/.kube/config:~/.kube/config
+    kubectl config view --flatten > /home/$1/.kube/config
+}
+
+function root_cmd() {
+    mkdir -p ./.kind_data_dir && cd ./.kind_data_dir
+    fail_if_podman_does_not_exist
+    ensure_podman_access_to_private_ecr
+    ensure_kubectl_command
+    ensure_kind_command
+
+    copy_from_user_kube_config $UPDATECONFIG
+    KIND_EXPERIMENTAL_PROVIDER=podman kind $@
+    copy_to_user_kube_config $UPDATECONFIG
+    cd $OLDPWD && return
+}
